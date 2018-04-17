@@ -41,6 +41,7 @@ def queryMqttBroker():
   mqtt_QoS=0
 
   client.loop_start()
+  '''
   client.subscribe(
     [('$SYS/broker/clients/connected',mqtt_QoS),
     ('$SYS/broker/bytes/sent',mqtt_QoS),
@@ -55,6 +56,10 @@ def queryMqttBroker():
 	('$SYS/broker/uptime',mqtt_QoS),
 	('$SYS/broker/version',mqtt_QoS)		
     ])  
+  '''
+  client.subscribe(
+    [('$SYS/#',mqtt_QoS)]
+  )
   numberExpectedTopics=19  
   timestampMaxTimeout=TIMEOUT_RESPONSE_MILLIS + (time_.time()*1000)
   
@@ -62,7 +67,8 @@ def queryMqttBroker():
   while (len(mapTopicToMessage)<numberExpectedTopics) and (time_.time()*1000)<=timestampMaxTimeout :
     time_.sleep(0.100)  
   time_.sleep(0.100)
-  client.loop_stop()
+  client.disconnect()
+  #client.loop_stop() #this method is very slow,like 0.8s
   
 def printPerformanceData():
 
@@ -104,12 +110,36 @@ def printPerformanceData():
     "|MessagesReceived_15min=" + mapTopicToMessage['$SYS/broker/load/messages/received/15min']  +
     "  - Messages transmitted/received during last N minutes " 
   )
+  print("0 MQTT_Messages_ActuallyStored " + 
+    " TotActuallyStored_Messages=" + mapTopicToMessage['$SYS/broker/messages/stored'] +
+    "|ActuallyRetained_Messages=" + mapTopicToMessage['$SYS/broker/retained messages/count']  +
+    "  - Num. messages actually stored : " + 
+	convertNumberToMultiple_1000(mapTopicToMessage['$SYS/broker/messages/stored']) + 
+	" (retained+durable), Num. retained messages: " + 
+	convertNumberToMultiple_1000(mapTopicToMessage['$SYS/broker/retained messages/count'])
+  )
+  print("0 MQTT_Number_Subscriptions " + 
+    " NumSubscriptions=" + mapTopicToMessage['$SYS/broker/subscriptions/count'] +    
+    "  - Number of subscriptions active on the broker : " + 
+	convertNumberToMultiple_1000(mapTopicToMessage['$SYS/broker/subscriptions/count']) 	
+  )
   secondsFrom_brokerStarted=int(mapTopicToMessage['$SYS/broker/uptime'].replace('seconds','').replace(' ',''))
   datetime_brokerStarted=datetime_.datetime.fromtimestamp(time_.time()-secondsFrom_brokerStarted)
   print("0 MQTT_Uptime " + 
     " Uptime_seconds=" + str(secondsFrom_brokerStarted) + "s" +
     "  - Up since " + datetime_brokerStarted.strftime('%a %d %b %H:%M:%S %Y')
   )  
+  try:
+    print("0 MQTT_HeapMemory " + 
+    " current_HeapMemory=" + mapTopicToMessage['$SYS/broker/heap/current'] +
+    "B|max_HeapMemory=" + mapTopicToMessage['$SYS/broker/heap/maximum']  +
+    "  - Size of heap memory in use by MQTT broker. Current " + 
+	convertNumberToMultiple_1024(mapTopicToMessage['$SYS/broker/heap/current']) + 
+	", maximum: " + 
+	convertNumberToMultiple_1024(mapTopicToMessage['$SYS/broker/heap/maximum'])
+  )
+  except:
+    pass
 
 def printMqttStatus(mqttIsReachable):
   if mqttIsReachable:
