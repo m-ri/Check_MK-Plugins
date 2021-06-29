@@ -5,11 +5,34 @@ import datetime as datetime_
 
 SERVER_ADDRESS='127.0.0.1' #e.g.  192.168.1.1
 TIMEOUT_RESPONSE_MILLIS=4000
+mqtt_QoS=0
+numberExpectedTopics=22
 
 #list of interesting topics https://mosquitto.org/man/mosquitto-8.html
  
 debug=False
 mapTopicToMessage=dict()
+
+def on_connect(client, userdata, flags, rc):
+  if debug:
+    print(f'Connected with result code {rc}')
+  client.subscribe(
+    [
+    ('$SYS/broker/clients/connected',mqtt_QoS),
+    ('$SYS/broker/bytes/sent',mqtt_QoS),
+    ('$SYS/broker/bytes/received',mqtt_QoS),
+    ('$SYS/broker/load/bytes/sent/+',mqtt_QoS), #3 topics
+    ('$SYS/broker/load/bytes/received/+',mqtt_QoS), #3 topics   
+    ('$SYS/broker/messages/sent',mqtt_QoS),
+    ('$SYS/broker/messages/received',mqtt_QoS),	
+    ('$SYS/broker/load/messages/received/+',mqtt_QoS), #3 topics
+    ('$SYS/broker/load/messages/sent/+',mqtt_QoS),  #3 topics
+    ('$SYS/broker/messages/stored',mqtt_QoS),	
+    ('$SYS/broker/retained messages/count',mqtt_QoS),
+    ('$SYS/broker/subscriptions/count',mqtt_QoS),
+    ('$SYS/broker/uptime',mqtt_QoS),
+    ('$SYS/broker/version',mqtt_QoS)		
+    ])  
 
 def on_message(client, userdata, message):
   mapTopicToMessage[message.topic]=str(message.payload.decode("utf-8"))
@@ -38,29 +61,7 @@ def convertNumberToMultiple_1000(number, suffix=''):
   return number+suffix
 	
 def queryMqttBroker(): 
-  mqtt_QoS=0
-
   client.loop_start()
-  '''
-  client.subscribe(
-    [('$SYS/broker/clients/connected',mqtt_QoS),
-    ('$SYS/broker/bytes/sent',mqtt_QoS),
-    ('$SYS/broker/bytes/received',mqtt_QoS),
-    ('$SYS/broker/messages/sent',mqtt_QoS),
-    ('$SYS/broker/messages/received',mqtt_QoS),	
-	
-    ('$SYS/broker/load/bytes/sent/+',mqtt_QoS), #3 topics
-    ('$SYS/broker/load/bytes/received/+',mqtt_QoS), #3 topics   
-    ('$SYS/broker/load/messages/received/+',mqtt_QoS), #3 topics
-    ('$SYS/broker/load/messages/sent/+',mqtt_QoS),  #3 topics
-	('$SYS/broker/uptime',mqtt_QoS),
-	('$SYS/broker/version',mqtt_QoS)		
-    ])  
-  '''
-  client.subscribe(
-    [('$SYS/#',mqtt_QoS)]
-  )
-  numberExpectedTopics=19  
   timestampMaxTimeout=TIMEOUT_RESPONSE_MILLIS + (time_.time()*1000)
   
   #wait until timeout OR received all messages
@@ -148,7 +149,8 @@ def printMqttStatus(mqttIsReachable):
     print("2 MQTT_Running - MQTT broker is unreachable")
 
 client=mqtt.Client()
-client.on_message=on_message
+client.on_connect = on_connect
+client.on_message = on_message
 
 isClientConnected=False
 try:
@@ -162,7 +164,8 @@ except:
 if isClientConnected:
   queryMqttBroker()
   printMqttStatus(True)
-  printPerformanceData()
+  if len(mapTopicToMessage) == numberExpectedTopics:
+    printPerformanceData()
 
  
 #command from bash
